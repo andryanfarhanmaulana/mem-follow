@@ -1,8 +1,8 @@
 # mem-follow: Cross-Chain Bridge Event Listener Simulation
 
-This repository contains a Python script that simulates a critical component of a cross-chain bridge: an event listener, often called a relayer node. This node is responsible for monitoring a bridge contract on a source blockchain (e.g., Ethereum), detecting deposit events, and triggering a corresponding token minting transaction on a destination blockchain (e.g., Polygon).
+This repository contains a Python script that simulates a critical component of a cross-chain bridge: an event listener, often called a relayer node. This node is responsible for monitoring a bridge contract on a source blockchain (e.g., Ethereum), detecting specific events (e.g., token deposits), and triggering a corresponding transaction on a destination blockchain (e.g., Polygon).
 
-This script serves as an architectural blueprint, demonstrating key principles for building a reliable off-chain agent: modular design, persistent state management, resilience to network errors, and real-time interaction with blockchain networks.
+This script serves as an architectural blueprint, demonstrating key principles for building a reliable off-chain agent: modular design, persistent state management, resilience to network errors, and robust interaction with blockchain networks.
 
 ## Concept
 
@@ -50,7 +50,8 @@ The script is structured into several distinct classes, each with a single respo
 +-------------+-----------------+
               |                   |                      |
       (1. Event) v                  (2. Process) v             (3. Broadcast) v
-+--------------+----------+  +-----------------+  +----------------------+\n|   ChainConnector        |  |  EventProcessor |  | TransactionBroadcaster |
++--------------+----------+  +-----------------+  +----------------------+
+|   ChainConnector        |  |  EventProcessor |  | TransactionBroadcaster |
 | (Source & Destination)  |  |-----------------|  |----------------------|
 |-------------------------|  | - Validates     |  | - Builds transaction |
 | - Manages Web3 connection |  |   event data    |  | - Manages nonce      |
@@ -61,7 +62,8 @@ The script is structured into several distinct classes, each with a single respo
                                     |
                                (Checks/Updates)
                                     v
-                           +-----------------+\n                           |     StateDB     |
+                           +-----------------+
+                           |     StateDB     |
                            |-----------------|
                            | - Persists state|
                            |   (JSON file)   |
@@ -72,7 +74,7 @@ The script is structured into several distinct classes, each with a single respo
 -   **`StateDB`**: A simple persistent state manager that uses a local JSON file. It tracks which event transaction hashes have already been processed to prevent duplicates (replay attacks).
 -   **`EventProcessor`**: The business logic core. It takes a raw event, validates its arguments (e.g., checks if it's for the correct destination chain), and transforms it into a structured payload for the destination chain transaction.
 -   **`TransactionBroadcaster`**: Responsible for the final step of relaying. It takes processed data, builds the raw transaction (including nonce and gas), signs it with a private key, and broadcasts it to the destination chain. It also includes a `SIMULATE_ONLY` mode.
--   **`BridgeContractListener`**: The main orchestrator. Running in its own thread, it polls for new events in a continuous loop and passes them through the `EventProcessor` and `TransactionBroadcaster`. It also includes logic for handling blockchain reorganizations (reorgs) and connection errors.
+-   **`BridgeContractListener`**: The main orchestrator. Running in its own thread, it polls for new events in a continuous loop, delegating them to the `EventProcessor` and `TransactionBroadcaster`. It also includes logic for handling blockchain reorganizations (reorgs) and connection errors.
 
 **Component Orchestration**
 
@@ -108,21 +110,21 @@ listener.start()
 4.  **Listener Start**: The `BridgeContractListener` is instantiated and started in a separate thread.
 5.  **Polling Loop**: The listener thread creates an event filter and enters a loop, periodically polling for new `TokensDeposited` events.
 6.  **Confirmation Delay**: To protect against blockchain reorganizations (reorgs), the script waits for a configurable number of blocks (`CONFIRMATION_BLOCKS`) to pass before processing an event.
-7.  **Event Processing**: Once an event is confirmed, it is passed to the `EventProcessor`. It checks the `StateDB` to prevent duplicate processing, validates the event's data, and prepares a payload for the minting transaction.
+7.  **Event Processing**: Once an event is confirmed, it is delegated to the `EventProcessor`. This component first checks the `StateDB` to ensure the event has not been processed before (preventing replays). It then validates the event's data and prepares a structured payload for the minting transaction.
 8.  **Transaction Broadcasting**: The prepared data is passed to the `TransactionBroadcaster`. It fetches the current nonce, builds and signs the `mintBridgedTokens` transaction, and sends it to the destination chain (if `SIMULATE_ONLY` is `False`).
 9.  **State Update**: Upon successful broadcast, the `StateDB` is updated with the source event's transaction hash, preventing it from being processed again.
 10. **Graceful Shutdown**: The script listens for a `KeyboardInterrupt` (Ctrl+C) to shut down the listener thread cleanly.
 
 ## Prerequisites
 
-- Python 3.8 or higher.
-- Access to RPC endpoints for a source and a destination blockchain (e.g., via [Infura](https://infura.io) or [Alchemy](https://www.alchemy.com/)).
+-   Python 3.8 or higher.
+-   Access to RPC endpoints for a source and a destination blockchain (e.g., via [Infura](https://infura.io) or [Alchemy](https://www.alchemy.com/)).
 
 ## Usage
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-github-username/mem-follow.git
+    git clone https://github.com/example-user/mem-follow.git
     cd mem-follow
     ```
 
@@ -156,8 +158,8 @@ listener.start()
     DEST_MINT_CONTRACT="0xYourDestinationMintContractAddress"
 
     # --- RELAYER WALLET ---
-    # IMPORTANT: Use a dedicated burner wallet funded only with enough native currency (e.g., ETH, MATIC) for gas fees.
-    # NEVER USE A WALLET WITH SIGNIFICANT ASSETS for development or production relaying.
+    # IMPORTANT: Use a dedicated "burner" wallet funded only with enough native currency (e.g., SepoliaETH, Mumbai MATIC) for gas fees.
+    # **NEVER use a wallet containing significant assets.**
     SIGNER_PRIVATE_KEY="0xyour_private_key_here"
 
     # --- SCRIPT BEHAVIOR ---
@@ -169,9 +171,41 @@ listener.start()
     ```bash
     python main.py
     ```
+    The listener will now start polling for events.
 
-5.  **Observe the output:**
-    The script will start logging its status. If a `TokensDeposited` event occurs on the source contract that matches the criteria, you will see logs detailing the processing and (simulated) broadcasting steps.
+5.  **Trigger a Test Event (Optional):**
+    To see the listener in action, you'll need to trigger a `TokensDeposited` event on the source contract. You can do this using a block explorer like Etherscan (on the contract's "Write Contract" tab) or by using a simple script with a library like `web3.py`.
+
+    *Example using `web3.py` to call a deposit function:*
+    ```python
+    # NOTE: This is a separate script you would run to test the listener.
+    # It requires its own setup with web3, a contract object, and a signer.
+
+    from web3 import Web3
+
+    # Assume 'bridge_contract' is your initialized web3.py contract object,
+    # 'web3' is your Web3 instance, and 'account' is your initialized
+    # account object (from a private key).
+
+    tx_params = {
+        'from': account.address,
+        'nonce': web3.eth.get_transaction_count(account.address),
+        'gasPrice': web3.eth.gas_price
+    }
+
+    tx = bridge_contract.functions.depositTokens(
+        '0xRecipientAddressOnDestinationChain', # _recipient
+        Web3.to_wei(10, 'ether'),               # _amount
+        80001                                  # _destinationChainId
+    ).build_transaction(tx_params)
+
+    signed_tx = web3.eth.account.sign_transaction(tx, private_key=account.key)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    print(f"Sent deposit transaction: {tx_hash.hex()}")
+    ```
+
+6.  **Observe the output:**
+    Once your deposit transaction is confirmed on the source chain (and after the script's `CONFIRMATION_BLOCKS` delay), you will see logs detailing the processing and (simulated) broadcasting steps.
 
     ```
     2023-10-27 15:30:00 - INFO - [MainThread] - Successfully connected to SourceChain at https://sepolia.infura.io/v3/...
