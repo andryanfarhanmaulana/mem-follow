@@ -2,11 +2,11 @@
 
 This repository contains a Python script that simulates a critical component of a cross-chain bridge: an event listener, often called a relayer node. This node is responsible for monitoring a bridge contract on a source blockchain (e.g., Ethereum), detecting specific events (e.g., token deposits), and triggering a corresponding transaction on a destination blockchain (e.g., Polygon).
 
-This script serves as an architectural blueprint, demonstrating key principles for building a reliable off-chain agent: modular design, persistent state management, resilience to network errors, and robust interaction with blockchain networks.
+This script serves as an architectural blueprint and demonstrates key principles for building a reliable off-chain agent: modular design, persistent state management, resilience to network errors, and robust interaction with blockchain networks.
 
 ## Concept
 
-Cross-chain bridges are essential for blockchain interoperability, allowing assets and data to move between otherwise siloed networks. A common design pattern is the "lock-and-mint" mechanism:
+Cross-chain bridges are essential for blockchain interoperability, allowing assets and data to move between otherwise siloed networks. A common design pattern for this is the "lock-and-mint" mechanism:
 
 1.  **Lock/Deposit:** A user deposits tokens (e.g., ERC-20) into a bridge contract on the source chain. The contract locks these tokens and emits an event (`TokensDeposited`) containing details like the recipient's address on the destination chain, the amount, and the destination chain ID.
 
@@ -35,7 +35,7 @@ This script simulates the entire lifecycle of the **Listen** and **Verify & Rela
 -   **Resilience:** Includes retry logic for RPC connections and handles graceful shutdown.
 -   **Reorg Protection:** Waits for a configurable number of block confirmations before processing an event, reducing the risk of acting on orphaned blocks.
 -   **Simulation Mode:** A `SIMULATE_ONLY` flag allows for testing the entire listening and processing pipeline without broadcasting live transactions, saving gas fees during development.
--   **Configuration-Driven:** All critical parameters (RPC URLs, keys, contract addresses) are managed via a `.env` file, not hardcoded.
+-   **Configuration-Driven:** All critical parameters (RPC URLs, keys, contract addresses) are managed via a `.env` file and are not hardcoded.
 
 ## Code Architecture
 
@@ -79,7 +79,7 @@ The script is structured into several distinct classes, each with a single respo
                            +-----------------+
 ```
 
--   **`ChainConnector`**: Manages the connection to a blockchain's RPC endpoint. It handles initial connection, status checks, instantiates Web3 contract objects, and includes retry logic for transient RPC failures.
+-   **`ChainConnector`**: Manages the connection to a blockchain's RPC endpoint. It handles the initial connection, status checks, instantiates `web3.py` contract objects, and includes retry logic for transient RPC failures.
 -   **`StateDB`**: A simple persistent state manager that uses a local JSON file. It tracks which event transaction hashes have already been processed to prevent duplicates (replay attacks).
 -   **`EventProcessor`**: The business logic core. It takes a raw event, validates its arguments (e.g., checks if it's for the correct destination chain), and transforms it into a structured payload for the destination chain transaction.
 -   **`TransactionBroadcaster`**: Responsible for the final step of relaying. It takes processed data, builds the raw transaction (including nonce and gas), signs it with a private key, and broadcasts it to the destination chain. It also includes a `SIMULATE_ONLY` mode.
@@ -119,15 +119,15 @@ listener.start()
 4.  **Listener Start**: The `BridgeContractListener` is instantiated and started in a separate thread.
 5.  **Polling Loop**: The listener thread creates an event filter and enters a loop, periodically polling for new `TokensDeposited` events.
 6.  **Confirmation Delay**: To protect against blockchain reorganizations (reorgs), the script waits for a configurable number of blocks (`CONFIRMATION_BLOCKS`) to pass before processing an event.
-7.  **Event Processing**: Once an event is confirmed, it is delegated to the `EventProcessor`. This component first checks the `StateDB` to ensure the event has not been processed before (preventing replays). It then validates the event's data and prepares a structured payload for the minting transaction.
+7.  **Event Processing**: Once an event is confirmed, it is delegated to the `EventProcessor`. This component first checks the `StateDB` to ensure the event has not been processed before (to prevent replays). It then validates the event's data and prepares a structured payload for the minting transaction.
 8.  **Transaction Broadcasting**: The prepared data is passed to the `TransactionBroadcaster`. It fetches the current nonce, builds and signs the `mintBridgedTokens` transaction, and sends it to the destination chain (if `SIMULATE_ONLY` is `False`).
 9.  **State Update**: Upon successful broadcast, the `StateDB` is updated with the source event's transaction hash, preventing it from being processed again.
 10. **Graceful Shutdown**: The script listens for a `KeyboardInterrupt` (Ctrl+C) to shut down the listener thread cleanly.
 
 ## Prerequisites
 
--   Python 3.8 or higher.
--   Access to RPC endpoints for a source and a destination blockchain (e.g., via [Infura](https://infura.io) or [Alchemy](https://www.alchemy.com/)).
+-   Python 3.8 or higher
+-   Access to RPC endpoints for a source and a destination blockchain (e.g., via [Infura](https://infura.io) or [Alchemy](https://www.alchemy.com/))
 
 ## Usage
 
@@ -182,30 +182,30 @@ listener.start()
     ```
     The listener will now start polling for events.
 
-5.  **Trigger a Test Event (Optional):**
-    To see the listener in action, you'll need to trigger a `TokensDeposited` event on the source contract. You can do this using a block explorer like Etherscan (on the contract's "Write Contract" tab) or by using a simple script with a library like `web3.py`.
+5.  **Trigger a Test Event (Optional)**
+    To see the listener in action, you'll need to trigger a `TokensDeposited` event on the source contract. You can do this using a block explorer like Etherscan (via the "Write Contract" tab) or by writing a simple script with a library like `web3.py`.
 
-    *Example using `web3.py` to call a deposit function:*
+    Here is a minimal example of how you might trigger the `depositTokens` function:
     ```python
-    # NOTE: This is a separate script you would run to test the listener.
-    # It requires its own setup with web3, a contract object, and a signer.
+    # NOTE: This is a separate, one-off script you would run to test the listener.
+    # It requires its own setup with web3, a contract ABI, and a signer.
 
     from web3 import Web3
 
-    # Assume 'bridge_contract' is your initialized web3.py contract object,
-    # 'web3' is your Web3 instance, and 'account' is your initialized
+    # Assume 'bridge_contract' is an initialized web3.py contract object,
+    # 'web3' is your Web3 instance, and 'account' is an initialized
     # account object (from a private key).
 
     tx_params = {
         'from': account.address,
         'nonce': web3.eth.get_transaction_count(account.address),
-        'gasPrice': web3.eth.gas_price
+        'gasPrice': web3.eth.gas_price,
     }
 
     tx = bridge_contract.functions.depositTokens(
-        '0xRecipientAddressOnDestinationChain', # _recipient
-        web3.to_wei(10, 'ether'),               # _amount
-        80001                                  # _destinationChainId
+        '0xRecipientAddressOnDestinationChain', # The recipient's address
+        web3.to_wei(10, 'ether'),               # The amount of tokens to bridge
+        80001                                  # The destination chain ID (e.g., 80001 for Mumbai)
     ).build_transaction(tx_params)
 
     signed_tx = web3.eth.account.sign_transaction(tx, private_key=account.key)
