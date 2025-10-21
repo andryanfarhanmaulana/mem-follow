@@ -28,6 +28,15 @@ Cross-chain bridges are essential for blockchain interoperability, allowing asse
 
 This script simulates the entire lifecycle of the **Listen** and **Verify & Relay** steps.
 
+## Features
+
+-   **Modular & Extensible:** Components are decoupled, making it easy to replace the state manager, add new event processors, or change the transaction broadcasting logic.
+-   **Persistent State:** Remembers processed events in a JSON file to prevent double-processing across restarts.
+-   **Resilience:** Includes retry logic for RPC connections and handles graceful shutdown.
+-   **Reorg Protection:** Waits for a configurable number of block confirmations before processing an event, reducing the risk of acting on orphaned blocks.
+-   **Simulation Mode:** A `SIMULATE_ONLY` flag allows for testing the entire listening and processing pipeline without broadcasting live transactions, saving gas fees during development.
+-   **Configuration-Driven:** All critical parameters (RPC URLs, keys, contract addresses) are managed via a `.env` file, not hardcoded.
+
 ## Code Architecture
 
 The script is structured into several distinct classes, each with a single responsibility to promote maintainability and testability.
@@ -55,7 +64,7 @@ The script is structured into several distinct classes, each with a single respo
 | (Source & Destination)  |  |-----------------|  |----------------------|
 |-------------------------|  | - Validates     |  | - Builds transaction |
 | - Manages Web3 connection |  |   event data    |  | - Manages nonce      |
-| - Provides contract obj |  | - Prevents      |  | - Signs & Sends      |
+| - Instantiates contract |  | - Prevents      |  | - Signs & Sends      |
 | - Retry logic           |  |   replays via   |  | - Waits for receipt  |
 +-------------------------+  |   StateDB       |  | - Gas estimation     |
                            +--------+--------+  +----------------------+
@@ -70,7 +79,7 @@ The script is structured into several distinct classes, each with a single respo
                            +-----------------+
 ```
 
--   **`ChainConnector`**: Manages the connection to a blockchain's RPC endpoint. It handles initial connection, status checks, provides Web3 contract objects, and includes retry logic for transient RPC failures.
+-   **`ChainConnector`**: Manages the connection to a blockchain's RPC endpoint. It handles initial connection, status checks, instantiates Web3 contract objects, and includes retry logic for transient RPC failures.
 -   **`StateDB`**: A simple persistent state manager that uses a local JSON file. It tracks which event transaction hashes have already been processed to prevent duplicates (replay attacks).
 -   **`EventProcessor`**: The business logic core. It takes a raw event, validates its arguments (e.g., checks if it's for the correct destination chain), and transforms it into a structured payload for the destination chain transaction.
 -   **`TransactionBroadcaster`**: Responsible for the final step of relaying. It takes processed data, builds the raw transaction (including nonce and gas), signs it with a private key, and broadcasts it to the destination chain. It also includes a `SIMULATE_ONLY` mode.
@@ -195,7 +204,7 @@ listener.start()
 
     tx = bridge_contract.functions.depositTokens(
         '0xRecipientAddressOnDestinationChain', # _recipient
-        Web3.to_wei(10, 'ether'),               # _amount
+        web3.to_wei(10, 'ether'),               # _amount
         80001                                  # _destinationChainId
     ).build_transaction(tx_params)
 
