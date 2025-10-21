@@ -2,7 +2,7 @@
 
 This repository contains a Python script that simulates a critical component of a cross-chain bridge: an event listener, often called a relayer node. This node is responsible for monitoring a bridge contract on a source blockchain (e.g., Ethereum), detecting specific events (e.g., token deposits), and triggering a corresponding transaction on a destination blockchain (e.g., Polygon).
 
-This script serves as an architectural blueprint and demonstrates key principles for building a reliable off-chain agent: modular design, persistent state management, resilience to network errors, and robust interaction with blockchain networks.
+This script serves as an architectural blueprint, demonstrating key principles for building a reliable off-chain agent: modular design, persistent state management, resilience to network errors, and robust interaction with blockchain networks.
 
 ## Concept
 
@@ -22,7 +22,7 @@ Cross-chain bridges are essential for blockchain interoperability, allowing asse
 
 2.  **Listen:** Off-chain nodes, often called validators or relayers, continuously monitor the source chain for these `TokensDeposited` events.
 
-3.  **Verify & Relay:** Upon detecting a valid event, a relayer node constructs, signs, and broadcasts a new transaction on the destination chain. This transaction calls a function (e.g., `mintBridgedTokens`) on the destination bridge contract.
+3.  **Verify & Relay:** Upon detecting a valid event, the relayer node constructs, signs, and broadcasts a new transaction on the destination chain. This transaction calls a function (e.g., `mintBridgedTokens`) on the destination bridge contract.
 
 4.  **Mint/Release:** The destination bridge contract verifies the relayer's message and mints an equivalent amount of "wrapped" tokens to the specified recipient's address.
 
@@ -39,7 +39,7 @@ This script simulates the entire lifecycle of the **Listen** and **Verify & Rela
 
 ## Code Architecture
 
-The script is structured into several distinct classes, each with a single responsibility to promote maintainability and testability.
+The script is structured into several distinct classes, each with a single responsibility, which promotes maintainability and testability.
 
 ```
 +---------------------------+
@@ -161,7 +161,7 @@ listener.start()
 
     # --- DESTINATION CHAIN (e.g., Polygon Mumbai Testnet) ---
     DEST_CHAIN_RPC="https://polygon-mumbai.infura.io/v3/YOUR_INFURA_PROJECT_ID"
-    # The destination chain ID, used to filter events on the source chain
+    # The destination chain ID; the listener filters for events matching this ID
     DEST_CHAIN_ID=80001
     # Address of the destination chain contract that mints bridged tokens
     DEST_MINT_CONTRACT="0xYourDestinationMintContractAddress"
@@ -183,9 +183,9 @@ listener.start()
     The listener will now start polling for events.
 
 5.  **Trigger a Test Event (Optional)**
-    To see the listener in action, you'll need to trigger a `TokensDeposited` event on the source contract. You can do this using a block explorer like Etherscan (via the "Write Contract" tab) or by writing a simple script with a library like `web3.py`.
+    To see the listener in action, you'll need to trigger a `TokensDeposited` event on the source contract. The easiest way is to interact with the contract using a block explorer like Etherscan (via the "Write Contract" tab) or a wallet interface.
 
-    Here is a minimal example of how you might trigger the `depositTokens` function:
+    For developers, a simple script using a library like `web3.py` can also be used. Below is a minimal example of how you might call a `depositTokens` function:
     ```python
     # NOTE: This is a separate, one-off script you would run to test the listener.
     # It requires its own setup with web3, a contract ABI, and a signer.
@@ -203,9 +203,9 @@ listener.start()
     }
 
     tx = bridge_contract.functions.depositTokens(
-        '0xRecipientAddressOnDestinationChain', # The recipient's address
-        web3.to_wei(10, 'ether'),               # The amount of tokens to bridge
-        80001                                  # The destination chain ID (e.g., 80001 for Mumbai)
+        '0xRecipientAddressOnDestinationChain', # Recipient's address
+        web3.to_wei(10, 'ether'),               # Amount of tokens to bridge
+        80001                                  # Destination chain ID (e.g., 80001 for Mumbai)
     ).build_transaction(tx_params)
 
     signed_tx = web3.eth.account.sign_transaction(tx, private_key=account.key)
